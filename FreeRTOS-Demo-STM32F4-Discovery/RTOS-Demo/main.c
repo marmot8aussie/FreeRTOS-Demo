@@ -281,6 +281,7 @@ volatile unsigned long ulButtonPressCounts = 0UL;
 int main(void)
 {
 	trace_puts("FreeRTOS on STM32F4 Discovery!");
+	trace_printf("funcion:0x%x file:0x%x line:0x%x", __FUNCTION__, __FILE__, __LINE__);
 
 	/* Configure the hardware ready to run the test. */
 	prvSetupHardware();
@@ -548,6 +549,30 @@ void TIM2_IRQHandler( void )
 }
 /*-----------------------------------------------------------*/
 
+static prvCRCTask(void *pvParameters)
+{
+	char pBuffer[64];
+
+	CRC->CR |= CRC_CR_RESET;
+	__asm volatile
+	(
+			"isb             \n"
+			"dsb"
+			:
+	);
+	for(;;)
+	{
+		uint32_t lnValue = random();
+		CRC->DR = lnValue;
+		vTaskDelay(500UL/portTICK_PERIOD_MS);
+
+		lnValue = CRC->DR;
+		sprintf(pBuffer, "CRC:0x%x \n", lnValue);
+		trace_puts(pBuffer);
+		vTaskDelay(500UL/portTICK_PERIOD_MS);
+	}
+}
+
 static void prvOptionallyCreateComprehensveTestApplication( void )
 {
 	#if ( mainCREATE_SIMPLE_LED_FLASHER_DEMO_ONLY == 0 )
@@ -576,7 +601,7 @@ static void prvOptionallyCreateComprehensveTestApplication( void )
 		file */
 		xTaskCreate( vRegTest1Task, "Reg1", configMINIMAL_STACK_SIZE, ( void * ) NULL, tskIDLE_PRIORITY, NULL );
 		xTaskCreate( vRegTest2Task, "Reg2", configMINIMAL_STACK_SIZE, ( void * ) NULL, tskIDLE_PRIORITY, NULL );
-
+		xTaskCreate( prvCRCTask, "CRC", configMINIMAL_STACK_SIZE, (void *)NULL, tskIDLE_PRIORITY, NULL );
 		/* Create the semaphore that is used to demonstrate a task being
 		synchronised with an interrupt. */
 		vSemaphoreCreateBinary( xTestSemaphore );
